@@ -8,7 +8,7 @@ cd CyberScan
 nano server.py
 # paste Backend (server.py) code
 
-nano Project.html
+nano Cyber.html
 # paste UI (Project.html) code
 
 python3 server.py
