@@ -321,6 +321,81 @@ def detect_sqli_params(domain: str) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+def detect_xss_params(domain: str) -> dict:
+    """Basic XSS vulnerability detection - checks for reflected input and unsafe contexts."""
+    if not HAS_REQUESTS:
+        return {"status": "error", "message": "requests not installed"}
+    
+    try:
+        r = req_lib.get(f"https://{domain}/", timeout=10, allow_redirects=True)
+        html = r.text
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        findings = {
+            'input_fields': 0,
+            'text_areas': 0,
+            'forms_without_validation': [],
+            'inline_javascript': 0,
+            'event_handlers': 0,
+            'missing_csp': False,
+            'risk_level': 'low'
+        }
+        
+        # Count input fields and textareas
+        inputs = soup.find_all('input', type=['text', 'search', 'email', 'url'])
+        textareas = soup.find_all('textarea')
+        findings['input_fields'] = len(inputs)
+        findings['text_areas'] = len(textareas)
+        
+        # Check forms for validation attributes
+        forms = soup.find_all('form')
+        for form in forms:
+            action = form.get('action', 'current page')
+            has_validation = any(
+                inp.get('pattern') or inp.get('maxlength') or inp.get('required')
+                for inp in form.find_all('input')
+            )
+            if not has_validation:
+                findings['forms_without_validation'].append(action)
+        
+        # Check for inline JavaScript
+        scripts = soup.find_all('script')
+        inline_scripts = [s for s in scripts if not s.get('src')]
+        findings['inline_javascript'] = len(inline_scripts)
+        
+        # Check for dangerous event handlers
+        dangerous_events = ['onclick', 'onerror', 'onload', 'onmouseover']
+        event_count = 0
+        for tag in soup.find_all(True):
+            for event in dangerous_events:
+                if tag.get(event):
+                    event_count += 1
+        findings['event_handlers'] = event_count
+        
+        # Check CSP header
+        csp = r.headers.get('Content-Security-Policy')
+        findings['missing_csp'] = not bool(csp)
+        
+        # Calculate risk
+        risk_score = 0
+        if findings['input_fields'] > 5: risk_score += 1
+        if findings['forms_without_validation']: risk_score += 2
+        if findings['missing_csp']: risk_score += 2
+        if findings['event_handlers'] > 3: risk_score += 1
+        
+        findings['risk_level'] = 'high' if risk_score >= 4 else 'medium' if risk_score >= 2 else 'low'
+        
+        return {
+            "status": "ok",
+            "domain": domain,
+            "findings": findings,
+            "note": "This is basic XSS risk assessment. Use xsser in Parrot section for comprehensive testing."
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 # ─────────────────────────────────────────────────────────
 #  SECTION 2 — Parrot OS tool wrappers
 #  These shell out to the real installed tools.
@@ -367,6 +442,34 @@ def run_sqlmap(domain: str, flags: str = "") -> dict:
     cmd = f"sqlmap -u https://{domain} --batch --crawl=1 {flags}"
     result = run_cmd(cmd)
     return {"status": "ok", "tool": "sqlmap", "command": cmd, "output": result["stdout"], "errors": result["stderr"]}
+
+
+def run_sublist3r(domain: str, flags: str = "") -> dict:
+    """Run sublist3r for subdomain enumeration."""
+    cmd = f"sublist3r -d {domain} {flags}"
+    result = run_cmd(cmd)
+    return {"status": "ok", "tool": "sublist3r", "command": cmd, "output": result["stdout"], "errors": result["stderr"]}
+
+
+def run_dirb(domain: str, flags: str = "") -> dict:
+    """Run dirb for directory brute forcing."""
+    cmd = f"dirb https://{domain} {flags}"
+    result = run_cmd(cmd)
+    return {"status": "ok", "tool": "dirb", "command": cmd, "output": result["stdout"], "errors": result["stderr"]}
+
+
+def run_nmap(domain: str, flags: str = "") -> dict:
+    """Run nmap for port scanning."""
+    cmd = f"nmap {domain} {flags}"
+    result = run_cmd(cmd)
+    return {"status": "ok", "tool": "nmap", "command": cmd, "output": result["stdout"], "errors": result["stderr"]}
+
+
+def run_xsser(domain: str, flags: str = "") -> dict:
+    """Run xsser for XSS vulnerability scanning."""
+    cmd = f"xsser --url https://{domain} --auto {flags}"
+    result = run_cmd(cmd)
+    return {"status": "ok", "tool": "xsser", "command": cmd, "output": result["stdout"], "errors": result["stderr"]}
 
 
 # ─────────────────────────────────────────────────────────
@@ -438,6 +541,15 @@ def api_sqli():
     return jsonify(detect_sqli_params(domain))
 
 
+@app.route("/api/xss", methods=["GET"])
+def api_xss():
+    """Basic XSS vulnerability detection endpoint."""
+    domain = request.args.get("domain", "").strip()
+    if not domain:
+        return jsonify({"status": "error", "message": "Missing domain parameter"}), 400
+    return jsonify(detect_xss_params(domain))
+
+
 # ── Parrot tool routes (shell out to real tools) ──
 
 @app.route("/api/parrot/<tool>", methods=["GET"])
@@ -452,13 +564,17 @@ def api_parrot(tool):
         return jsonify({"status": "error", "message": "Missing domain parameter"}), 400
 
     tool_map = {
-        "nikto":    run_nikto,
-        "dnsdict6": run_dnsdict6,
-        "dnsenum":  run_dnsenum,
-        "dnsnmap":  run_dnsnmap,
-        "lbd":      run_lbd,
-        "wafw00f":  run_wafw00f,
-        "sqlmap":   run_sqlmap
+        "nikto":     run_nikto,
+        "dnsdict6":  run_dnsdict6,
+        "dnsenum":   run_dnsenum,
+        "dnsnmap":   run_dnsnmap,
+        "lbd":       run_lbd,
+        "wafw00f":   run_wafw00f,
+        "sqlmap":    run_sqlmap,
+        "sublist3r": run_sublist3r,
+        "dirb":      run_dirb,
+        "nmap":      run_nmap,
+        "xsser":     run_xsser
     }
 
     fn = tool_map.get(tool)
