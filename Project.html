@@ -181,6 +181,7 @@
     <div class="tool-btn" data-tool="ssl"      onclick="run('ssl')">     <span class="icon">🔒</span><span class="label">SSL Check</span></div>
     <div class="tool-btn" data-tool="headers"  onclick="run('headers')"> <span class="icon">📄</span><span class="label">HTTP Headers</span></div>
     <div class="tool-btn" data-tool="sqli"     onclick="run('sqli')">    <span class="icon">💉</span><span class="label">SQL Injection</span></div>
+    <div class="tool-btn" data-tool="xss"      onclick="run('xss')">     <span class="icon">⚡</span><span class="label">XSS Detection</span></div>
     <div class="tool-btn" data-tool="tech"     onclick="run('tech')">    <span class="icon">⚙️</span><span class="label">Tech Stack</span></div>
   </div>
 
@@ -209,13 +210,17 @@
 
     <!-- Parrot tool chips -->
     <div class="parrot-tools-grid" id="parrotToolsGrid">
-      <div class="parrot-tool-chip active" data-ptool="nikto"    onclick="selectParrotTool('nikto')">   <span class="p-icon">🔫</span><span class="p-name">nikto</span>   <span class="p-cat">Web Scanner</span></div>
-      <div class="parrot-tool-chip"        data-ptool="sqlmap"   onclick="selectParrotTool('sqlmap')">  <span class="p-icon">💉</span><span class="p-name">sqlmap</span>  <span class="p-cat">SQL Injection</span></div>
-      <div class="parrot-tool-chip"        data-ptool="dnsdict6" onclick="selectParrotTool('dnsdict6')"><span class="p-icon">📖</span><span class="p-name">dnsdict6</span><span class="p-cat">DNS Enum</span></div>
-      <div class="parrot-tool-chip"        data-ptool="dnsenum"  onclick="selectParrotTool('dnsenum')"> <span class="p-icon">🧾</span><span class="p-name">dnsenum</span> <span class="p-cat">DNS Enum</span></div>
-      <div class="parrot-tool-chip"        data-ptool="dnsnmap"  onclick="selectParrotTool('dnsnmap')"> <span class="p-icon">🗺️</span><span class="p-name">dnsnmap</span> <span class="p-cat">DNS+Nmap</span></div>
-      <div class="parrot-tool-chip"        data-ptool="lbd"      onclick="selectParrotTool('lbd')">     <span class="p-icon">⚖️</span><span class="p-name">lbd</span>      <span class="p-cat">LB Detect</span></div>
-      <div class="parrot-tool-chip"        data-ptool="wafw00f"  onclick="selectParrotTool('wafw00f')"> <span class="p-icon">🛡️</span><span class="p-name">wafw00f</span> <span class="p-cat">WAF Detect</span></div>
+      <div class="parrot-tool-chip active" data-ptool="nikto"     onclick="selectParrotTool('nikto')">    <span class="p-icon">🔫</span><span class="p-name">nikto</span>    <span class="p-cat">Web Scanner</span></div>
+      <div class="parrot-tool-chip"        data-ptool="sqlmap"    onclick="selectParrotTool('sqlmap')">   <span class="p-icon">💉</span><span class="p-name">sqlmap</span>   <span class="p-cat">SQL Injection</span></div>
+      <div class="parrot-tool-chip"        data-ptool="xsser"     onclick="selectParrotTool('xsser')">    <span class="p-icon">⚡</span><span class="p-name">xsser</span>    <span class="p-cat">XSS Scanner</span></div>
+      <div class="parrot-tool-chip"        data-ptool="sublist3r" onclick="selectParrotTool('sublist3r')"><span class="p-icon">🔎</span><span class="p-name">sublist3r</span><span class="p-cat">Subdomains</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dirb"      onclick="selectParrotTool('dirb')">     <span class="p-icon">📂</span><span class="p-name">dirb</span>     <span class="p-cat">Dir Brute</span></div>
+      <div class="parrot-tool-chip"        data-ptool="nmap"      onclick="selectParrotTool('nmap')">     <span class="p-icon">🗺️</span><span class="p-name">nmap</span>     <span class="p-cat">Port Scan</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsdict6"  onclick="selectParrotTool('dnsdict6')"> <span class="p-icon">📖</span><span class="p-name">dnsdict6</span> <span class="p-cat">DNS Enum</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsenum"   onclick="selectParrotTool('dnsenum')">  <span class="p-icon">🧾</span><span class="p-name">dnsenum</span>  <span class="p-cat">DNS Enum</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsnmap"   onclick="selectParrotTool('dnsnmap')">  <span class="p-icon">🌐</span><span class="p-name">dnsnmap</span>  <span class="p-cat">DNS+Nmap</span></div>
+      <div class="parrot-tool-chip"        data-ptool="lbd"       onclick="selectParrotTool('lbd')">      <span class="p-icon">⚖️</span><span class="p-name">lbd</span>      <span class="p-cat">LB Detect</span></div>
+      <div class="parrot-tool-chip"        data-ptool="wafw00f"   onclick="selectParrotTool('wafw00f')">  <span class="p-icon">🛡️</span><span class="p-name">wafw00f</span>  <span class="p-cat">WAF Detect</span></div>
     </div>
 
     <!-- Optional flags -->
@@ -435,6 +440,45 @@ function renderSQLi(d){
   return out;
 }
 
+function renderXSS(d){
+  if(d.status==='error') return section('XSS Detection')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  
+  const f = d.findings || {};
+  const risk = f.risk_level || 'unknown';
+  const riskBadge = risk === 'high' ? '<span class="badge badge-bad">High Risk</span>' : risk === 'medium' ? '<span class="badge badge-warn">Medium Risk</span>' : '<span class="badge badge-ok">Low Risk</span>';
+  
+  let out = section('XSS (Cross-Site Scripting) Detection') + row('Risk Level', riskBadge);
+  
+  out += row('Input Fields', f.input_fields || 0);
+  out += row('Text Areas', f.text_areas || 0);
+  out += row('Inline JavaScript', f.inline_javascript || 0);
+  out += row('Event Handlers', f.event_handlers || 0);
+  
+  const cspBadge = f.missing_csp ? '<span class="badge badge-bad">Missing</span>' : '<span class="badge badge-ok">Present</span>';
+  out += row('Content-Security-Policy', cspBadge);
+  
+  if(f.forms_without_validation && f.forms_without_validation.length){
+    out += `<div style="margin-top:12px;padding:10px;background:var(--yellow);opacity:.2;border-radius:8px;">`;
+    out += `<div style="color:var(--yellow);font-weight:700;font-size:.82rem;margin-bottom:6px;">⚠ Forms Without Input Validation</div>`;
+    f.forms_without_validation.forEach(action => {
+      out += `<div style="font-size:.72rem;color:#94a3b8;padding:2px 0;">• ${action}</div>`;
+    });
+    out += `</div>`;
+  }
+  
+  if(risk === 'low'){
+    out += `<div style="margin-top:10px;padding:10px;background:var(--green-dim);border-radius:8px;">`;
+    out += `<div style="color:var(--green);font-weight:700;font-size:.8rem;">✓ Low XSS risk profile</div>`;
+    out += `</div>`;
+  }
+  
+  out += `<div style="margin-top:12px;padding:8px;border-top:1px solid rgba(255,255,255,.05);">`;
+  out += `<div style="font-size:.7rem;color:#64748b;">💡 Note: ${d.note}</div>`;
+  out += `</div>`;
+  
+  return out;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    INFO MODULES — each fetches from backend, renders
    ═══════════════════════════════════════════════════════════════ */
@@ -445,6 +489,7 @@ const infoModules = {
   ssl:     { label:'SSL Certificate', endpoint:'/api/ssl',     render: renderSSL },
   headers: { label:'HTTP Headers',    endpoint:'/api/headers', render: renderHeaders },
   sqli:    { label:'SQL Injection',   endpoint:'/api/sqli',    render: renderSQLi },
+  xss:     { label:'XSS Detection',   endpoint:'/api/xss',     render: renderXSS },
   tech:    { label:'Tech Stack',      endpoint:'/api/tech',    render: renderTech }
 };
 
@@ -513,7 +558,7 @@ async function runAll(){
   body_.innerHTML=`<div class="placeholder" style="padding:28px 0;color:#4a6070;font-size:.82rem;text-transform:none;letter-spacing:0">Running full scan on <strong style="color:var(--accent)">${domain}</strong>…</div>`;
 
   let fullHtml='';
-  const order=['ip','dns','whois','ssl','headers','sqli','tech'];
+  const order=['ip','dns','whois','ssl','headers','sqli','xss','tech'];
   for(const key of order){
     try {
       fullHtml+=await fetchModule(key,domain);
@@ -537,7 +582,12 @@ const parrotTools = {
     path:'Applications → Penetration Testing → Web Application → nikto',
     desc:'Scans web servers for dangerous files, outdated software, and misconfigurations using a signature database.',
     cmdFn: d=>`nikto -h ${d}`,
-    extras:[{flag:'-p 443',label:'HTTPS Port'},{flag:'-ssl',label:'Force SSL'},{flag:'-o report.html -f html',label:'HTML Report'},{flag:'-tuning 1',label:'Files Only'}]
+    extras:[
+      {flag:'-p 443',label:'HTTPS Port',desc:'Scan port 443 instead of default port 80 (for HTTPS sites)'},
+      {flag:'-ssl',label:'Force SSL',desc:'Force SSL mode even if port is not 443'},
+      {flag:'-o report.html -f html',label:'HTML Report',desc:'Save scan results as an HTML report file'},
+      {flag:'-tuning 1',label:'Files Only',desc:'Only test for interesting files/directories (faster scan)'}
+    ]
   },
   sqlmap: {
     name:'sqlmap', category:'SQL Injection Testing',
@@ -545,13 +595,13 @@ const parrotTools = {
     desc:'Advanced SQL injection and database takeover tool. Tests GET/POST parameters, cookies, headers for SQL injection vulnerabilities.',
     cmdFn: d=>`sqlmap -u https://${d} --batch --crawl=1`,
     extras:[
-      {flag:'--level=3',label:'Test Level 3'},
-      {flag:'--risk=2',label:'Risk Level 2'},
-      {flag:'--dbs',label:'Enumerate DBs'},
-      {flag:'--tables',label:'Enumerate Tables'},
-      {flag:'--dump',label:'Dump Data'},
-      {flag:'--forms',label:'Test Forms'},
-      {flag:'--random-agent',label:'Random User-Agent'}
+      {flag:'--level=3',label:'Test Level 3',desc:'Use more extensive tests (1-5, default is 1). Higher = more thorough but slower'},
+      {flag:'--risk=2',label:'Risk Level 2',desc:'Use riskier SQL injection payloads (1-3). Higher = more aggressive tests'},
+      {flag:'--dbs',label:'Enumerate DBs',desc:'List all databases on the server if injection is found'},
+      {flag:'--tables',label:'Enumerate Tables',desc:'List all tables in databases'},
+      {flag:'--dump',label:'Dump Data',desc:'Extract and download data from database tables'},
+      {flag:'--forms',label:'Test Forms',desc:'Automatically find and test all forms on the page'},
+      {flag:'--random-agent',label:'Random User-Agent',desc:'Use random HTTP User-Agent header to avoid detection'}
     ]
   },
   dnsdict6: {
@@ -559,35 +609,105 @@ const parrotTools = {
     path:'Applications → Information Gathering → DNS Analysis → dnsdict6',
     desc:'Enumerates subdomains using dictionary-based brute force across DNS records.',
     cmdFn: d=>`atk6-dnsdict6 ${d}`,
-    extras:[{flag:'-d /usr/share/wordlists/subdomains.txt',label:'Wordlist'},{flag:'-t 8',label:'8 Threads'},{flag:'-o out.txt',label:'Save Output'}]
+    extras:[
+      {flag:'-d /usr/share/wordlists/subdomains.txt',label:'Wordlist',desc:'Use custom wordlist file for subdomain names'},
+      {flag:'-t 8',label:'8 Threads',desc:'Run 8 parallel threads for faster scanning'},
+      {flag:'-o out.txt',label:'Save Output',desc:'Save discovered subdomains to output file'}
+    ]
   },
   dnsenum: {
     name:'dnsenum', category:'DNS Enumeration',
     path:'Applications → Information Gathering → DNS Analysis → dnsenum',
     desc:'Comprehensive DNS enumeration — fetches MX, NS, A records, performs zone transfers and subdomain brute force.',
     cmdFn: d=>`dnsenum ${d}`,
-    extras:[{flag:'--dnsip 8.8.8.8',label:'Custom DNS'},{flag:'-f /usr/share/wordlists/subdomains.txt',label:'Wordlist'},{flag:'--threads 8',label:'8 Threads'},{flag:'-o output.xml',label:'XML Output'}]
+    extras:[
+      {flag:'--dnsip 8.8.8.8',label:'Custom DNS',desc:'Use Google DNS (8.8.8.8) as DNS server for lookups'},
+      {flag:'-f /usr/share/wordlists/subdomains.txt',label:'Wordlist',desc:'Wordlist file for subdomain brute forcing'},
+      {flag:'--threads 8',label:'8 Threads',desc:'Use 8 parallel threads for faster enumeration'},
+      {flag:'-o output.xml',label:'XML Output',desc:'Save results in XML format for parsing'}
+    ]
   },
   dnsnmap: {
     name:'dnsnmap', category:'DNS + Nmap Combined',
     path:'Applications → Information Gathering → DNS Analysis → dnsnmap',
     desc:'Resolves a domain via DNS then runs an Nmap port scan against resolved IPs in a single workflow.',
     cmdFn: d=>`dnsnmap ${d}`,
-    extras:[{flag:'-sV',label:'Service Versions'},{flag:'-p 1-1024',label:'Ports 1–1024'},{flag:'--script=vuln',label:'Vuln Scripts'}]
+    extras:[
+      {flag:'-sV',label:'Service Versions',desc:'Detect service/version info on open ports'},
+      {flag:'-p 1-1024',label:'Ports 1–1024',desc:'Scan first 1024 ports (common services)'},
+      {flag:'--script=vuln',label:'Vuln Scripts',desc:'Run Nmap vulnerability detection scripts'}
+    ]
   },
   lbd: {
     name:'lbd', category:'Load Balancer Detector',
     path:'Applications → Information Gathering → IDS/IPS Identification → lbd',
     desc:'Detects load balancers by analysing differences in DNS records, headers and cookies across multiple requests.',
     cmdFn: d=>`lbd ${d}`,
-    extras:[{flag:'-p 443',label:'HTTPS Port'},{flag:'-v',label:'Verbose'}]
+    extras:[
+      {flag:'-p 443',label:'HTTPS Port',desc:'Test HTTPS port 443 instead of HTTP port 80'},
+      {flag:'-v',label:'Verbose',desc:'Show detailed output and debug information'}
+    ]
   },
   wafw00f: {
     name:'wafw00f', category:'WAF Fingerprinting',
     path:'Applications → Information Gathering → IDS/IPS Identification → wafw00f',
     desc:'Sends crafted probes to fingerprint which Web Application Firewall is protecting a site.',
     cmdFn: d=>`wafw00f https://${d}`,
-    extras:[{flag:'-a',label:'Detect All WAFs'},{flag:'-v',label:'Verbose'},{flag:'-o report.json -f json',label:'JSON Report'}]
+    extras:[
+      {flag:'-a',label:'Detect All WAFs',desc:'Test against all known WAF signatures (slower but comprehensive)'},
+      {flag:'-v',label:'Verbose',desc:'Show detailed probing and detection information'},
+      {flag:'-o report.json -f json',label:'JSON Report',desc:'Save results as JSON file for parsing'}
+    ]
+  },
+  xsser: {
+    name:'xsser', category:'XSS Scanner',
+    path:'Applications → Penetration Testing → Web Application → xsser',
+    desc:'Automated XSS vulnerability scanner. Tests GET/POST parameters, forms, and headers for cross-site scripting flaws.',
+    cmdFn: d=>`xsser --url https://${d} --auto`,
+    extras:[
+      {flag:'--Coo',label:'Test Cookies',desc:'Include cookies in XSS injection testing'},
+      {flag:'--heuristic',label:'Heuristic Mode',desc:'Use heuristic checks to find XSS vulnerabilities faster'},
+      {flag:'--reverse-check',label:'Reverse Check',desc:'Verify XSS by checking if payload appears in response'},
+      {flag:'--threads=10',label:'10 Threads',desc:'Use 10 parallel connections for faster scanning'}
+    ]
+  },
+  sublist3r: {
+    name:'sublist3r', category:'Subdomain Enumeration',
+    path:'Applications → Information Gathering → DNS Analysis → sublist3r',
+    desc:'Enumerates subdomains using search engines (Google, Yahoo, Bing, Baidu) and public DNS databases.',
+    cmdFn: d=>`sublist3r -d ${d}`,
+    extras:[
+      {flag:'-b',label:'Brute Force',desc:'Enable brute force mode with built-in wordlist'},
+      {flag:'-v',label:'Verbose',desc:'Show detailed progress and results in real-time'},
+      {flag:'-t 10',label:'10 Threads',desc:'Use 10 threads for faster subdomain discovery'},
+      {flag:'-o subdomains.txt',label:'Save Output',desc:'Save discovered subdomains to text file'}
+    ]
+  },
+  dirb: {
+    name:'dirb', category:'Directory Brute Forcer',
+    path:'Applications → Penetration Testing → Web Application → dirb',
+    desc:'Brute forces directories and files on web servers using wordlists to discover hidden content.',
+    cmdFn: d=>`dirb https://${d}`,
+    extras:[
+      {flag:'/usr/share/dirb/wordlists/common.txt',label:'Common List',desc:'Use common.txt wordlist (~4600 entries, balanced speed/coverage)'},
+      {flag:'/usr/share/dirb/wordlists/big.txt',label:'Big List',desc:'Use big.txt wordlist (~20,000 entries, slower but thorough)'},
+      {flag:'-r',label:'Non-Recursive',desc:'Do not scan subdirectories recursively (faster, less thorough)'},
+      {flag:'-S',label:'Silent Mode',desc:'Silent mode - show only found directories/files'}
+    ]
+  },
+  nmap: {
+    name:'nmap', category:'Network Port Scanner',
+    path:'Applications → Information Gathering → Network Scanner → nmap',
+    desc:'The ultimate network reconnaissance tool. Scans ports, detects services, OS fingerprinting, and vulnerability detection.',
+    cmdFn: d=>`nmap ${d}`,
+    extras:[
+      {flag:'-p-',label:'All Ports (1-65535)',desc:'Scan ALL 65,535 TCP ports instead of just common ones (very slow)'},
+      {flag:'-sV',label:'Service Versions',desc:'Probe open ports to determine service/version info'},
+      {flag:'-O',label:'OS Detection',desc:'Attempt to identify remote operating system'},
+      {flag:'-A',label:'Aggressive Scan',desc:'Enable OS detection, version detection, script scanning, and traceroute'},
+      {flag:'--script=vuln',label:'Vuln Scripts',desc:'Run all Nmap vulnerability detection scripts'},
+      {flag:'-T4',label:'Speed (Faster)',desc:'Faster timing template (assumes reliable network)'}
+    ]
   }
 };
 
@@ -609,9 +729,10 @@ function renderExtras(){
   const tool=parrotTools[currentParrotTool];
   const block=document.getElementById('extrasBlock');
   if(!tool.extras||!tool.extras.length){ block.innerHTML=''; return; }
-  let html=`<div class="extras-label">Optional Flags</div><div class="extras-row">`;
+  let html=`<div class="extras-label">Optional Flags <span style="color:#4a5568;font-weight:400;font-size:.65rem;">(hover for info)</span></div><div class="extras-row">`;
   tool.extras.forEach((ex,i)=>{
-    html+=`<div class="extra-chip" data-ei="${i}" onclick="toggleExtra(${i})">${ex.flag} <span style="color:#4a5568">${ex.label}</span></div>`;
+    const desc = ex.desc || ex.label; // use description if available, otherwise label
+    html+=`<div class="extra-chip" data-ei="${i}" onclick="toggleExtra(${i})" title="${desc}">${ex.flag} <span style="color:#4a5568">${ex.label}</span></div>`;
   });
   html+='</div>';
   block.innerHTML=html;
