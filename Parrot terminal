@@ -1,0 +1,15 @@
+cd ~/Desktop
+mkdir CyberScan
+# create file CyberScan
+
+cd CyberScan
+# Select CyberScan
+
+nano server.py
+# paste Backend (server.py) code
+
+nano Project.html
+# paste UI (Project.html) code
+
+python3 server.py
+# To start program (server.py)
