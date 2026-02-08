@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CyberScan — Website Security Analysis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:#0a0e1a; --bg-card:#111827; --bg-card-alt:#1a2234;
+    --accent:#00f0ff; --accent-dim:rgba(0,240,255,.15); --accent-glow:rgba(0,240,255,.35);
+    --green:#39ff6e; --green-dim:rgba(57,255,110,.15);
+    --yellow:#f5c542; --red:#ff4c5e; --red-dim:rgba(255,76,94,.15);
+    --text:#c8d6e5; --text-bright:#eef2f7; --border:rgba(0,240,255,.18);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Rajdhani',sans-serif;background:var(--bg-deep);color:var(--text);min-height:100vh;overflow-x:hidden;}
+
+  /* grid bg */
+  body::before{content:'';position:fixed;inset:0;z-index:0;
+    background-image:linear-gradient(rgba(0,240,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,255,.04) 1px,transparent 1px);
+    background-size:48px 48px;pointer-events:none;}
+  /* orbs */
+  .orb{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;opacity:.45;}
+  .orb-1{width:340px;height:340px;background:var(--accent);top:-100px;left:-80px;}
+  .orb-2{width:260px;height:260px;background:#7c3aed;bottom:-60px;right:-60px;}
+  .orb-3{width:180px;height:180px;background:var(--green);bottom:30%;left:15%;}
+
+  .wrapper{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:36px 20px 60px;}
+
+  /* header */
+  .header{text-align:center;margin-bottom:28px;}
+  .header h1{font-family:'Share Tech Mono',monospace;font-size:2.2rem;letter-spacing:.06em;color:var(--text-bright);text-shadow:0 0 18px var(--accent-glow);}
+  .header h1 span{color:var(--accent);}
+  .header p{font-size:.95rem;color:#64748b;margin-top:6px;letter-spacing:.08em;text-transform:uppercase;}
+
+  /* connection badge row */
+  .badge-row{display:flex;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .scan-badge{display:inline-flex;align-items:center;gap:7px;background:var(--accent-dim);border:1px solid var(--border);border-radius:20px;padding:5px 14px;font-size:.78rem;color:var(--accent);letter-spacing:.05em;}
+  .scan-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse-dot 1.6s infinite;}
+  .conn-badge{display:inline-flex;align-items:center;gap:7px;border-radius:20px;padding:5px 14px;font-size:.72rem;letter-spacing:.05em;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);}
+  .conn-badge .cdot{width:7px;height:7px;border-radius:50%;}
+  .conn-badge.online{border-color:var(--green-dim);color:var(--green);} .conn-badge.online .cdot{background:var(--green);}
+  .conn-badge.offline{border-color:var(--red-dim);color:var(--red);} .conn-badge.offline .cdot{background:var(--red);animation:pulse-dot 1s infinite;}
+  @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  /* input */
+  .input-row{display:flex;gap:10px;margin-top:22px;}
+  .input-row input{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:13px 18px;font-family:'Share Tech Mono',monospace;font-size:.9rem;color:var(--text-bright);outline:none;transition:border-color .25s,box-shadow .25s;}
+  .input-row input::placeholder{color:#4a5568;}
+  .input-row input:focus{border-color:var(--accent);box-shadow:0 0 14px var(--accent-dim);}
+  .input-row button{background:var(--accent);color:#0a0e1a;border:none;border-radius:10px;padding:0 24px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:box-shadow .25s,transform .1s;white-space:nowrap;}
+  .input-row button:hover{box-shadow:0 0 20px var(--accent-glow);}
+  .input-row button:active{transform:scale(.96);}
+
+  /* tool grid */
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:18px;}
+  .tool-btn{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;cursor:pointer;transition:border-color .25s,background .25s,transform .1s;user-select:none;}
+  .tool-btn:hover{border-color:var(--accent);background:var(--accent-dim);}
+  .tool-btn:active{transform:scale(.94);}
+  .tool-btn .icon{font-size:1.45rem;display:block;}
+  .tool-btn .label{font-size:.72rem;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.07em;font-weight:600;}
+  .tool-btn.active .label{color:var(--accent);}
+
+  /* result panel */
+  .result-panel{margin-top:22px;background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-height:180px;transition:border-color .3s;}
+  .result-panel.scanning{border-color:var(--accent);box-shadow:0 0 18px var(--accent-dim);}
+  .panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg-card-alt);}
+  .panel-header .title{font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--accent);letter-spacing:.06em;}
+  .panel-header .status{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;padding:3px 10px;border-radius:12px;}
+  .status.idle{background:#1e293b;color:#64748b;}
+  .status.running{background:var(--accent-dim);color:var(--accent);animation:pulse-bg .8s infinite alternate;}
+  .status.done{background:var(--green-dim);color:var(--green);}
+  .status.error{background:var(--red-dim);color:var(--red);}
+  @keyframes pulse-bg{from{opacity:.7}to{opacity:1}}
+  .scan-bar{height:3px;width:0;background:var(--accent);box-shadow:0 0 8px var(--accent-glow);transition:width .35s linear;}
+  .panel-body{padding:20px;}
+  .placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#2d3748;font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;padding:40px 20px;}
+  .placeholder svg{width:42px;height:42px;opacity:.35;}
+
+  /* rows */
+  .r-row{display:flex;align-items:flex-start;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.05);animation:fadeIn .3s ease;}
+  .r-row:last-child{border-bottom:none;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .r-label{font-weight:600;color:var(--text-bright);font-size:.9rem;}
+  .r-value{font-family:'Share Tech Mono',monospace;font-size:.82rem;color:var(--text);text-align:right;max-width:55%;word-break:break-all;}
+  .badge{display:inline-block;font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:10px;letter-spacing:.05em;text-transform:uppercase;}
+  .badge-ok{background:var(--green-dim);color:var(--green);}
+  .badge-warn{background:rgba(245,197,66,.15);color:var(--yellow);}
+  .badge-bad{background:var(--red-dim);color:var(--red);}
+  .badge-info{background:var(--accent-dim);color:var(--accent);}
+  .r-section{font-family:'Share Tech Mono',monospace;font-size:.72rem;color:#4a5568;text-transform:uppercase;letter-spacing:.12em;margin:16px 0 6px;}
+  .r-section:first-child{margin-top:0;}
+
+  /* ────── PARROT SECTION ────── */
+  .parrot-section{margin-top:32px;}
+  .parrot-section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .parrot-section-header .parrot-logo{width:30px;height:30px;}
+  .parrot-section-header h2{font-family:'Share Tech Mono',monospace;font-size:.95rem;color:var(--text-bright);letter-spacing:.05em;}
+  .parrot-section-header h2 span{color:#39ff6e;}
+  .parrot-badge{font-size:.65rem;background:rgba(57,255,110,.13);color:var(--green);border:1px solid rgba(57,255,110,.25);border-radius:10px;padding:2px 8px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;}
+
+  .parrot-tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+  .parrot-tool-chip{background:var(--bg-card);border:1px solid rgba(57,255,110,.2);border-radius:8px;padding:9px 6px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s,transform .1s;user-select:none;}
+  .parrot-tool-chip:hover{border-color:var(--green);background:var(--green-dim);}
+  .parrot-tool-chip:active{transform:scale(.93);}
+  .parrot-tool-chip.active{border-color:var(--green);background:var(--green-dim);}
+  .parrot-tool-chip .p-icon{font-size:1.1rem;display:block;}
+  .parrot-tool-chip .p-name{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:var(--green);margin-top:3px;letter-spacing:.04em;}
+  .parrot-tool-chip .p-cat{font-size:.58rem;color:#4a5568;text-transform:uppercase;letter-spacing:.06em;margin-top:1px;}
+
+  /* extras */
+  .extras-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .extras-label{font-family:'Share Tech Mono',monospace;font-size:.68rem;color:#4a5568;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+  .extra-chip{background:var(--bg-card);border:1px solid rgba(57,255,110,.18);border-radius:6px;padding:4px 10px;cursor:pointer;font-family:'Share Tech Mono',monospace;font-size:.67rem;color:#64748b;transition:all .2s;user-select:none;}
+  .extra-chip:hover{border-color:var(--green);}
+  .extra-chip.on{border-color:var(--green);background:var(--green-dim);color:var(--text-bright);}
+
+  /* terminal */
+  .terminal{background:#0d1117;border:1px solid rgba(57,255,110,.22);border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.4);}
+  .terminal-bar{display:flex;align-items:center;gap:7px;background:#161b22;padding:9px 14px;border-bottom:1px solid rgba(57,255,110,.15);}
+  .t-dot{width:11px;height:11px;border-radius:50%;}
+  .t-dot.red{background:#ff5f57;} .t-dot.yel{background:#febc2e;} .t-dot.grn{background:#28c840;}
+  .terminal-bar .t-title{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:#4a5568;margin-left:6px;letter-spacing:.05em;}
+  .terminal-body{padding:16px 18px;min-height:160px;max-height:380px;overflow-y:auto;font-family:'Share Tech Mono',monospace;font-size:.78rem;line-height:1.8;color:#7ee787;white-space:pre-wrap;word-break:break-all;}
+  .t-prompt{color:#58a6ff;} .t-cmd{color:#e6edf3;} .t-path{color:#79c0ff;} .t-comment{color:#484f58;font-style:italic;}
+  .terminal-actions{display:flex;gap:8px;padding:10px 14px;border-top:1px solid rgba(57,255,110,.15);background:#161b22;flex-wrap:wrap;}
+  .t-btn{background:rgba(57,255,110,.12);border:1px solid rgba(57,255,110,.25);color:var(--green);border-radius:6px;padding:5px 12px;font-family:'Share Tech Mono',monospace;font-size:.68rem;cursor:pointer;letter-spacing:.04em;transition:background .2s,transform .1s;}
+  .t-btn:hover{background:rgba(57,255,110,.22);} .t-btn:active{transform:scale(.93);} .t-btn.copied{background:rgba(57,255,110,.3);color:#fff;}
+  .t-btn.run-btn{background:var(--green);color:#0a0e1a;font-weight:700;letter-spacing:.06em;}
+  .t-btn.run-btn:hover{box-shadow:0 0 14px var(--green-dim);}
+  .t-btn.run-btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+
+  /* parrot info */
+  .parrot-info{margin-top:12px;background:var(--bg-card-alt);border:1px solid var(--border);border-radius:10px;padding:12px 16px;}
+  .parrot-info .pi-title{font-family:'Share Tech Mono',monospace;font-size:.7rem;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;}
+  .parrot-info .pi-row{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.78rem;}
+  .parrot-info .pi-row:last-child{border-bottom:none;}
+  .parrot-info .pi-label{color:#64748b;white-space:nowrap;margin-right:12px;}
+  .parrot-info .pi-val{color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.72rem;text-align:right;}
+
+  /* disclaimer */
+  .disclaimer{margin-top:28px;text-align:center;font-size:.7rem;color:#3a4456;letter-spacing:.06em;}
+  .disclaimer a{color:#4a5568;text-decoration:none;} .disclaimer a:hover{color:var(--accent);}
+
+  @media(max-width:560px){
+    .tools,.parrot-tools-grid{grid-template-columns:repeat(3,1fr);gap:7px;}
+    .tool-btn,.parrot-tool-chip{padding:10px 4px;}
+    .tool-btn .icon{font-size:1.2rem;}
+    .input-row{flex-direction:column;}
+    .header h1{font-size:1.6rem;}
+  }
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <h1><span>Cyber</span>Scan</h1>
+    <p>Website Security &amp; Reconnaissance Tool</p>
+    <div class="badge-row">
+      <span class="scan-badge"><span class="dot"></span> System Online</span>
+      <span class="conn-badge offline" id="connBadge"><span class="cdot"></span> <span id="connText">Backend Offline</span></span>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-row">
+    <input type="text" id="urlInput" placeholder="example.com" autocomplete="off" spellcheck="false">
+    <button onclick="runAll()">Scan</button>
+  </div>
+
+  <!-- Info extraction tool buttons -->
+  <div class="tools">
+    <div class="tool-btn" data-tool="ip"       onclick="run('ip')">      <span class="icon">🌐</span><span class="label">IP Lookup</span></div>
+    <div class="tool-btn" data-tool="dns"      onclick="run('dns')">     <span class="icon">🧾</span><span class="label">DNS Info</span></div>
+    <div class="tool-btn" data-tool="whois"    onclick="run('whois')">   <span class="icon">📋</span><span class="label">WHOIS</span></div>
+    <div class="tool-btn" data-tool="ssl"      onclick="run('ssl')">     <span class="icon">🔒</span><span class="label">SSL Check</span></div>
+    <div class="tool-btn" data-tool="headers"  onclick="run('headers')"> <span class="icon">📄</span><span class="label">HTTP Headers</span></div>
+    <div class="tool-btn" data-tool="sqli"     onclick="run('sqli')">    <span class="icon">💉</span><span class="label">SQL Injection</span></div>
+    <div class="tool-btn" data-tool="tech"     onclick="run('tech')">    <span class="icon">⚙️</span><span class="label">Tech Stack</span></div>
+  </div>
+
+  <!-- Result Panel -->
+  <div class="result-panel" id="resultPanel">
+    <div class="panel-header">
+      <span class="title">// OUTPUT</span>
+      <span class="status idle" id="statusBadge">Idle</span>
+    </div>
+    <div class="scan-bar" id="scanBar"></div>
+    <div class="panel-body" id="panelBody">
+      <div class="placeholder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Enter a domain and select a scan module
+      </div>
+    </div>
+  </div>
+
+  <!-- ────── PARROT OS SECTION ────── -->
+  <div class="parrot-section">
+    <div class="parrot-section-header">
+      <svg class="parrot-logo" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="30" fill="#161b22" stroke="rgba(57,255,110,.35)" stroke-width="2"/><path d="M32 14C24 14 18 20 18 28c0 6 4 11 10 13v9h8v-9c6-2 10-7 10-13 0-8-6-14-14-14z" fill="#39ff6e" opacity=".85"/><circle cx="28" cy="26" r="2.5" fill="#0d1117"/><circle cx="36" cy="26" r="2.5" fill="#0d1117"/><path d="M29 32l3 2 3-2" stroke="#0d1117" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <h2><span>Parrot</span> OS — Live Tool Execution</h2>
+      <span class="parrot-badge">Real Output</span>
+    </div>
+
+    <!-- Parrot tool chips -->
+    <div class="parrot-tools-grid" id="parrotToolsGrid">
+      <div class="parrot-tool-chip active" data-ptool="nikto"    onclick="selectParrotTool('nikto')">   <span class="p-icon">🔫</span><span class="p-name">nikto</span>   <span class="p-cat">Web Scanner</span></div>
+      <div class="parrot-tool-chip"        data-ptool="sqlmap"   onclick="selectParrotTool('sqlmap')">  <span class="p-icon">💉</span><span class="p-name">sqlmap</span>  <span class="p-cat">SQL Injection</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsdict6" onclick="selectParrotTool('dnsdict6')"><span class="p-icon">📖</span><span class="p-name">dnsdict6</span><span class="p-cat">DNS Enum</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsenum"  onclick="selectParrotTool('dnsenum')"> <span class="p-icon">🧾</span><span class="p-name">dnsenum</span> <span class="p-cat">DNS Enum</span></div>
+      <div class="parrot-tool-chip"        data-ptool="dnsnmap"  onclick="selectParrotTool('dnsnmap')"> <span class="p-icon">🗺️</span><span class="p-name">dnsnmap</span> <span class="p-cat">DNS+Nmap</span></div>
+      <div class="parrot-tool-chip"        data-ptool="lbd"      onclick="selectParrotTool('lbd')">     <span class="p-icon">⚖️</span><span class="p-name">lbd</span>      <span class="p-cat">LB Detect</span></div>
+      <div class="parrot-tool-chip"        data-ptool="wafw00f"  onclick="selectParrotTool('wafw00f')"> <span class="p-icon">🛡️</span><span class="p-name">wafw00f</span> <span class="p-cat">WAF Detect</span></div>
+    </div>
+
+    <!-- Optional flags -->
+    <div id="extrasBlock"></div>
+
+    <!-- Terminal -->
+    <div class="terminal">
+      <div class="terminal-bar">
+        <span class="t-dot red"></span><span class="t-dot yel"></span><span class="t-dot grn"></span>
+        <span class="t-title">parrot@parrotOS:~</span>
+      </div>
+      <div class="terminal-body" id="terminalBody"></div>
+      <div class="terminal-actions">
+        <button class="t-btn run-btn" id="runParrotBtn" onclick="executeParrotTool()">▶ Run on Parrot</button>
+        <button class="t-btn" id="copyBtn" onclick="copyCommand()">📋 Copy</button>
+      </div>
+    </div>
+
+    <!-- Tool info -->
+    <div class="parrot-info">
+      <div class="pi-title">// Tool Information</div>
+      <div class="pi-row"><span class="pi-label">Tool</span>        <span class="pi-val" id="piTool">—</span></div>
+      <div class="pi-row"><span class="pi-label">Category</span>    <span class="pi-val" id="piCat">—</span></div>
+      <div class="pi-row"><span class="pi-label">Parrot Path</span> <span class="pi-val" id="piPath" style="font-size:.65rem;color:#64748b">—</span></div>
+      <div class="pi-row"><span class="pi-label">Description</span> <span class="pi-val" id="piDesc" style="font-size:.72rem;color:#94a3b8">—</span></div>
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    ⚠️ Academic / educational prototype. Run <code style="color:var(--accent)">sudo python3 server.py</code> on Parrot OS to enable live tool execution.<br>
+    Do not use against systems you do not own or have written permission to test.
+  </div>
+</div>
+
+<!-- ─────────────────────────── SCRIPT ─────────────────────────── -->
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG
+   ═══════════════════════════════════════════════════════════════ */
+const API = "http://127.0.0.1:5000";   // local backend URL
+
+/* ═══════════════════════════════════════════════════════════════
+   DOM refs
+   ═══════════════════════════════════════════════════════════════ */
+const panel    = document.getElementById('resultPanel');
+const body_    = document.getElementById('panelBody');
+const statusEl = document.getElementById('statusBadge');
+const scanBar  = document.getElementById('scanBar');
+const connBadge= document.getElementById('connBadge');
+const connText = document.getElementById('connText');
+
+/* ═══════════════════════════════════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+function cleanDomain(raw){ return raw.replace(/^https?:\/\//,'').replace(/\/.*$/,'').trim().toLowerCase(); }
+function setStatus(s,cls){ statusEl.textContent=s; statusEl.className='status '+cls; }
+
+let barTimer=null;
+function startBar(){ scanBar.style.width='0'; clearTimeout(barTimer); void scanBar.offsetWidth; scanBar.style.transition='width .35s linear'; scanBar.style.width='70%'; barTimer=setTimeout(()=>{scanBar.style.width='92%'},400); }
+function endBar(){ clearTimeout(barTimer); scanBar.style.transition='width .15s ease'; scanBar.style.width='100%'; setTimeout(()=>{scanBar.style.width='0';scanBar.style.transition='none'},340); }
+
+function row(label,value){ return `<div class="r-row"><span class="r-label">${label}</span><span class="r-value">${value}</span></div>`; }
+function section(t){ return `<div class="r-section">${t}</div>`; }
+
+/* ═══════════════════════════════════════════════════════════════
+   BACKEND HEALTH CHECK
+   ═══════════════════════════════════════════════════════════════ */
+let backendAlive = false;
+async function checkBackend(){
+  try {
+    const r = await fetch(API+"/api/status", {signal: AbortSignal.timeout(2000)});
+    const d = await r.json();
+    if(d.alive){
+      backendAlive=true;
+      connBadge.className='conn-badge online';
+      connText.textContent='Backend Online';
+    }
+  } catch(e){
+    backendAlive=false;
+    connBadge.className='conn-badge offline';
+    connText.textContent='Backend Offline';
+  }
+}
+// poll every 3 seconds
+checkBackend();
+setInterval(checkBackend, 3000);
+
+/* ═══════════════════════════════════════════════════════════════
+   INFO EXTRACTION — renders JSON from backend into styled rows
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderIP(d){
+  if(d.status==='error') return section('IP Resolution')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  return section('IP Resolution')
+    +row('Domain', d.domain)
+    +row('IP Address(es)', d.ips.join('<br>'))
+    +row('Status','<span class="badge badge-ok">Resolved</span>');
+}
+
+function renderDNS(d){
+  if(d.status==='error') return section('DNS Records')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  let out=section('DNS Records');
+  const labels={A:'A (IPv4)',AAAA:'AAAA (IPv6)',MX:'MX (Mail)',NS:'NS (Name Server)',TXT:'TXT (Text)',CNAME:'CNAME'};
+  for(const [type, label] of Object.entries(labels)){
+    const vals=d.records[type]||[];
+    const badge=vals.length?'<span class="badge badge-ok">Found</span>':'<span class="badge badge-warn">Missing</span>';
+    const preview=vals.length? vals.slice(0,2).join(', ').substring(0,65) : '';
+    out+=row(label,`${badge} <span style="font-size:.72rem;color:#64748b;margin-left:6px">${preview}</span>`);
+  }
+  return out;
+}
+
+function renderWHOIS(d){
+  if(d.status==='error') return section('WHOIS Information')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  return section('WHOIS Information')
+    +row('Domain', d.domain)
+    +row('Registrar', d.registrar||'—')
+    +row('Created', d.created||'—')
+    +row('Expires', d.expires||'—')
+    +row('Updated', d.updated||'—')
+    +row('Name Servers', (d.name_servers||[]).slice(0,3).join('<br>')||'—');
+}
+
+function renderSSL(d){
+  if(d.status==='error') return section('SSL / TLS Certificate')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  const subj = d.subject||{};
+  const iss  = d.issuer||{};
+  return section('SSL / TLS Certificate')
+    +row('Domain', d.domain)
+    +row('HTTPS', '<span class="badge badge-ok">Enabled</span>')
+    +row('Common Name', subj.commonName||'—')
+    +row('Issuer', iss.organizationName||iss.commonName||'—')
+    +row('Valid From', d.not_before||'—')
+    +row('Valid Until', d.not_after||'—')
+    +row('SANs', (d.san||[]).slice(0,4).join(', ')||'—');
+}
+
+function renderHeaders(d){
+  if(d.status==='error') return section('HTTP Security Headers')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  let out=section('HTTP Security Headers');
+  const a=d.security_analysis||{};
+  for(const [h,info] of Object.entries(a)){
+    let badge;
+    if(info.flag==='present')  badge='<span class="badge badge-ok">Present</span>';
+    else if(info.flag==='hidden') badge='<span class="badge badge-ok">Hidden</span>';
+    else if(info.flag==='disclosed') badge='<span class="badge badge-warn">Disclosed</span>';
+    else badge='<span class="badge badge-bad">Missing</span>';
+    const val=info.value? ` <span style="font-size:.7rem;color:#64748b">${String(info.value).substring(0,50)}</span>` : '';
+    out+=row(h, badge+val);
+  }
+  return out;
+}
+
+function renderTech(d){
+  if(d.status==='error') return section('Technology Stack')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  const techs=d.technologies||{};
+  const cats=Object.keys(techs);
+  if(!cats.length) return section('Technology Stack')+row('Detected','<span class="badge badge-warn">Nothing detected</span>');
+  let out=section('Technology Stack');
+  cats.forEach(cat=>{
+    out+=`<div style="font-size:.7rem;color:#64748b;margin-top:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.1em">${cat}</div>`;
+    techs[cat].forEach(name=>{ out+=row(name,'<span class="badge badge-info">Detected</span>'); });
+  });
+  return out;
+}
+
+function renderSQLi(d){
+  if(d.status==='error') return section('SQL Injection Detection')+row('Error',`<span class="badge badge-bad">${d.message}</span>`);
+  
+  const f = d.findings || {};
+  const risk = f.risk_level || 'unknown';
+  const riskBadge = risk === 'high' ? '<span class="badge badge-bad">High Risk</span>' : '<span class="badge badge-ok">Low Risk</span>';
+  
+  let out = section('SQL Injection — Parameter Detection') + row('Risk Level', riskBadge);
+  
+  if(f.vulnerable_parameters && f.vulnerable_parameters.length){
+    out += `<div style="margin-top:12px;padding:10px;background:var(--red-dim);border-radius:8px;">`;
+    out += `<div style="color:var(--red);font-weight:700;font-size:.82rem;margin-bottom:6px;">⚠ Vulnerable Parameters Found</div>`;
+    f.vulnerable_parameters.forEach(p => {
+      out += `<div style="font-size:.75rem;color:#94a3b8;padding:3px 0;">• Parameter: <code style="color:var(--accent);background:#0d1117;padding:2px 6px;border-radius:4px;">${p}</code></div>`;
+    });
+    out += `</div>`;
+  }
+  
+  if(f.forms_with_params && f.forms_with_params.length){
+    out += `<div style="margin-top:10px;padding:10px;background:var(--yellow);opacity:.15;border-radius:8px;">`;
+    out += `<div style="color:var(--yellow);font-weight:700;font-size:.82rem;margin-bottom:6px;">⚠ Forms with Risky Parameters</div>`;
+    f.forms_with_params.forEach(form => {
+      out += `<div style="font-size:.72rem;color:#94a3b8;padding:3px 0;">`;
+      out += `• Action: <code style="color:var(--accent)">${form.action}</code> (${form.method})<br>`;
+      out += `&nbsp;&nbsp;Params: ${form.parameters.join(', ')}`;
+      out += `</div>`;
+    });
+    out += `</div>`;
+  }
+  
+  if(f.sql_errors_in_response && f.sql_errors_in_response.length){
+    out += `<div style="margin-top:10px;padding:10px;background:var(--red-dim);border-radius:8px;">`;
+    out += `<div style="color:var(--red);font-weight:700;font-size:.82rem;margin-bottom:6px;">⚠ SQL Errors Detected in Response</div>`;
+    f.sql_errors_in_response.forEach(err => {
+      out += `<div style="font-size:.75rem;color:#94a3b8;padding:2px 0;">• ${err}</div>`;
+    });
+    out += `</div>`;
+  }
+  
+  if(!f.vulnerable_parameters?.length && !f.forms_with_params?.length && !f.sql_errors_in_response?.length){
+    out += `<div style="margin-top:10px;padding:10px;background:var(--green-dim);border-radius:8px;">`;
+    out += `<div style="color:var(--green);font-weight:700;font-size:.8rem;">✓ No obvious SQL injection vectors found</div>`;
+    out += `</div>`;
+  }
+  
+  out += `<div style="margin-top:12px;padding:8px;border-top:1px solid rgba(255,255,255,.05);">`;
+  out += `<div style="font-size:.7rem;color:#64748b;">💡 Note: ${d.note}</div>`;
+  out += `<div style="font-size:.7rem;color:#64748b;margin-top:4px;">Use sqlmap in Parrot section below for comprehensive testing.</div>`;
+  out += `</div>`;
+  
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INFO MODULES — each fetches from backend, renders
+   ═══════════════════════════════════════════════════════════════ */
+const infoModules = {
+  ip:      { label:'IP Resolution',   endpoint:'/api/ip',      render: renderIP },
+  dns:     { label:'DNS Records',     endpoint:'/api/dns',     render: renderDNS },
+  whois:   { label:'WHOIS Lookup',    endpoint:'/api/whois',   render: renderWHOIS },
+  ssl:     { label:'SSL Certificate', endpoint:'/api/ssl',     render: renderSSL },
+  headers: { label:'HTTP Headers',    endpoint:'/api/headers', render: renderHeaders },
+  sqli:    { label:'SQL Injection',   endpoint:'/api/sqli',    render: renderSQLi },
+  tech:    { label:'Tech Stack',      endpoint:'/api/tech',    render: renderTech }
+};
+
+async function fetchModule(key, domain){
+  const mod=infoModules[key];
+  const r = await fetch(`${API}${mod.endpoint}?domain=${domain}`);
+  const d = await r.json();
+  return mod.render(d);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RUN a single info module
+   ═══════════════════════════════════════════════════════════════ */
+async function run(key){
+  const raw=document.getElementById('urlInput').value.trim();
+  if(!raw){ alert('Please enter a domain first.'); return; }
+  const domain=cleanDomain(raw);
+
+  if(!backendAlive){
+    panel.classList.add('scanning');
+    setStatus('Error','error');
+    body_.innerHTML=`<div class="placeholder" style="padding:28px 0;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <span style="color:var(--red);font-size:.82rem;text-transform:none;letter-spacing:0">Backend is offline.<br>Run <code style="color:var(--accent)">sudo python3 server.py</code> on Parrot OS first.</span>
+    </div>`;
+    endBar(); panel.classList.remove('scanning'); return;
+  }
+
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`[data-tool="${key}"]`);
+  if(btn) btn.classList.add('active');
+
+  const mod=infoModules[key];
+  panel.classList.add('scanning');
+  setStatus('Scanning…','running');
+  startBar();
+  body_.innerHTML=`<div class="placeholder" style="padding:28px 0;color:#4a6070;font-size:.82rem;text-transform:none;letter-spacing:0">Running <strong>${mod.label}</strong> on <strong style="color:var(--accent)">${domain}</strong>…</div>`;
+
+  try {
+    const html=await fetchModule(key,domain);
+    body_.innerHTML=html;
+    setStatus('Complete','done');
+  } catch(e){
+    body_.innerHTML=`<div class="placeholder" style="color:var(--red);padding:28px 0;text-transform:none;letter-spacing:0">Error: ${e.message||'Something went wrong'}</div>`;
+    setStatus('Error','error');
+  }
+  endBar(); panel.classList.remove('scanning');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RUN ALL info modules
+   ═══════════════════════════════════════════════════════════════ */
+async function runAll(){
+  const raw=document.getElementById('urlInput').value.trim();
+  if(!raw){ alert('Please enter a domain first.'); return; }
+  const domain=cleanDomain(raw);
+
+  if(!backendAlive){
+    run('ip'); return; // will show offline error
+  }
+
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.add('active'));
+  panel.classList.add('scanning');
+  setStatus('Full Scan…','running');
+  startBar();
+  body_.innerHTML=`<div class="placeholder" style="padding:28px 0;color:#4a6070;font-size:.82rem;text-transform:none;letter-spacing:0">Running full scan on <strong style="color:var(--accent)">${domain}</strong>…</div>`;
+
+  let fullHtml='';
+  const order=['ip','dns','whois','ssl','headers','sqli','tech'];
+  for(const key of order){
+    try {
+      fullHtml+=await fetchModule(key,domain);
+      body_.innerHTML=fullHtml+`<div class="r-row" style="color:#4a5568;font-size:.75rem;padding:8px 0;border:none">⟳ Running next module…</div>`;
+    } catch(e){
+      fullHtml+=section(infoModules[key].label)+row('Status','<span class="badge badge-bad">Error</span>');
+      body_.innerHTML=fullHtml;
+    }
+  }
+  body_.innerHTML=fullHtml;
+  setStatus('Complete','done');
+  endBar(); panel.classList.remove('scanning');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PARROT OS TOOL LOGIC
+   ═══════════════════════════════════════════════════════════════ */
+const parrotTools = {
+  nikto: {
+    name:'nikto', category:'Web Vulnerability Scanner',
+    path:'Applications → Penetration Testing → Web Application → nikto',
+    desc:'Scans web servers for dangerous files, outdated software, and misconfigurations using a signature database.',
+    cmdFn: d=>`nikto -h ${d}`,
+    extras:[{flag:'-p 443',label:'HTTPS Port'},{flag:'-ssl',label:'Force SSL'},{flag:'-o report.html -f html',label:'HTML Report'},{flag:'-tuning 1',label:'Files Only'}]
+  },
+  sqlmap: {
+    name:'sqlmap', category:'SQL Injection Testing',
+    path:'Applications → Penetration Testing → Web Application → sqlmap',
+    desc:'Advanced SQL injection and database takeover tool. Tests GET/POST parameters, cookies, headers for SQL injection vulnerabilities.',
+    cmdFn: d=>`sqlmap -u https://${d} --batch --crawl=1`,
+    extras:[
+      {flag:'--level=3',label:'Test Level 3'},
+      {flag:'--risk=2',label:'Risk Level 2'},
+      {flag:'--dbs',label:'Enumerate DBs'},
+      {flag:'--tables',label:'Enumerate Tables'},
+      {flag:'--dump',label:'Dump Data'},
+      {flag:'--forms',label:'Test Forms'},
+      {flag:'--random-agent',label:'Random User-Agent'}
+    ]
+  },
+  dnsdict6: {
+    name:'dnsdict6', category:'DNS Subdomain Enumeration',
+    path:'Applications → Information Gathering → DNS Analysis → dnsdict6',
+    desc:'Enumerates subdomains using dictionary-based brute force across DNS records.',
+    cmdFn: d=>`atk6-dnsdict6 ${d}`,
+    extras:[{flag:'-d /usr/share/wordlists/subdomains.txt',label:'Wordlist'},{flag:'-t 8',label:'8 Threads'},{flag:'-o out.txt',label:'Save Output'}]
+  },
+  dnsenum: {
+    name:'dnsenum', category:'DNS Enumeration',
+    path:'Applications → Information Gathering → DNS Analysis → dnsenum',
+    desc:'Comprehensive DNS enumeration — fetches MX, NS, A records, performs zone transfers and subdomain brute force.',
+    cmdFn: d=>`dnsenum ${d}`,
+    extras:[{flag:'--dnsip 8.8.8.8',label:'Custom DNS'},{flag:'-f /usr/share/wordlists/subdomains.txt',label:'Wordlist'},{flag:'--threads 8',label:'8 Threads'},{flag:'-o output.xml',label:'XML Output'}]
+  },
+  dnsnmap: {
+    name:'dnsnmap', category:'DNS + Nmap Combined',
+    path:'Applications → Information Gathering → DNS Analysis → dnsnmap',
+    desc:'Resolves a domain via DNS then runs an Nmap port scan against resolved IPs in a single workflow.',
+    cmdFn: d=>`dnsnmap ${d}`,
+    extras:[{flag:'-sV',label:'Service Versions'},{flag:'-p 1-1024',label:'Ports 1–1024'},{flag:'--script=vuln',label:'Vuln Scripts'}]
+  },
+  lbd: {
+    name:'lbd', category:'Load Balancer Detector',
+    path:'Applications → Information Gathering → IDS/IPS Identification → lbd',
+    desc:'Detects load balancers by analysing differences in DNS records, headers and cookies across multiple requests.',
+    cmdFn: d=>`lbd ${d}`,
+    extras:[{flag:'-p 443',label:'HTTPS Port'},{flag:'-v',label:'Verbose'}]
+  },
+  wafw00f: {
+    name:'wafw00f', category:'WAF Fingerprinting',
+    path:'Applications → Information Gathering → IDS/IPS Identification → wafw00f',
+    desc:'Sends crafted probes to fingerprint which Web Application Firewall is protecting a site.',
+    cmdFn: d=>`wafw00f https://${d}`,
+    extras:[{flag:'-a',label:'Detect All WAFs'},{flag:'-v',label:'Verbose'},{flag:'-o report.json -f json',label:'JSON Report'}]
+  }
+};
+
+let currentParrotTool='nikto';
+let selectedExtras=[];
+
+function selectParrotTool(key){
+  currentParrotTool=key;
+  selectedExtras=[];
+  document.querySelectorAll('.parrot-tool-chip').forEach(c=>c.classList.remove('active'));
+  const chip=document.querySelector(`[data-ptool="${key}"]`);
+  if(chip) chip.classList.add('active');
+  renderExtras();
+  renderTerminalCmd();
+  renderParrotInfo();
+}
+
+function renderExtras(){
+  const tool=parrotTools[currentParrotTool];
+  const block=document.getElementById('extrasBlock');
+  if(!tool.extras||!tool.extras.length){ block.innerHTML=''; return; }
+  let html=`<div class="extras-label">Optional Flags</div><div class="extras-row">`;
+  tool.extras.forEach((ex,i)=>{
+    html+=`<div class="extra-chip" data-ei="${i}" onclick="toggleExtra(${i})">${ex.flag} <span style="color:#4a5568">${ex.label}</span></div>`;
+  });
+  html+='</div>';
+  block.innerHTML=html;
+}
+
+function toggleExtra(idx){
+  const tool=parrotTools[currentParrotTool];
+  const flag=tool.extras[idx].flag;
+  const chip=document.querySelector(`.extra-chip[data-ei="${idx}"]`);
+  const pos=selectedExtras.indexOf(flag);
+  if(pos===-1){ selectedExtras.push(flag); if(chip) chip.classList.add('on'); }
+  else        { selectedExtras.splice(pos,1); if(chip) chip.classList.remove('on'); }
+  renderTerminalCmd();
+}
+
+function buildCommand(){
+  const domain=cleanDomain(document.getElementById('urlInput').value.trim())||'example.com';
+  const tool=parrotTools[currentParrotTool];
+  let cmd=tool.cmdFn(domain);
+  if(selectedExtras.length) cmd+=' '+selectedExtras.join(' ');
+  return cmd;
+}
+
+function renderTerminalCmd(){
+  const tool=parrotTools[currentParrotTool];
+  const cmd=buildCommand();
+  document.getElementById('terminalBody').innerHTML=
+    `<span class="t-comment"># ${tool.desc.substring(0,70)}…</span>\n\n`+
+    `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+    `<span class="t-prompt">└─$</span> <span class="t-cmd">${cmd}</span>\n`;
+  // reset copy btn
+  const cb=document.getElementById('copyBtn');
+  cb.textContent='📋 Copy'; cb.classList.remove('copied');
+}
+
+function renderParrotInfo(){
+  const tool=parrotTools[currentParrotTool];
+  document.getElementById('piTool').textContent=tool.name;
+  document.getElementById('piCat').textContent=tool.category;
+  document.getElementById('piPath').textContent=tool.path;
+  document.getElementById('piDesc').textContent=tool.desc;
+}
+
+function copyCommand(){
+  navigator.clipboard.writeText(buildCommand()).then(()=>{
+    const btn=document.getElementById('copyBtn');
+    btn.textContent='✓ Copied!'; btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='📋 Copy';btn.classList.remove('copied')},1600);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXECUTE Parrot tool via backend
+   ═══════════════════════════════════════════════════════════════ */
+async function executeParrotTool(){
+  const raw=document.getElementById('urlInput').value.trim();
+  if(!raw){ alert('Please enter a domain first.'); return; }
+  const domain=cleanDomain(raw);
+  const tool=parrotTools[currentParrotTool];
+  const cmd=buildCommand();
+  const runBtn=document.getElementById('runParrotBtn');
+
+  if(!backendAlive){
+    document.getElementById('terminalBody').innerHTML=
+      `<span class="t-comment"># ${tool.desc.substring(0,70)}…</span>\n\n`+
+      `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+      `<span class="t-prompt">└─$</span> <span class="t-cmd">${cmd}</span>\n\n`+
+      `<span style="color:var(--red)">✖ Backend is offline. Run sudo python3 server.py on Parrot OS first.</span>\n`;
+    return;
+  }
+
+  // Show "running…"
+  runBtn.disabled=true;
+  document.getElementById('terminalBody').innerHTML=
+    `<span class="t-comment"># ${tool.desc.substring(0,70)}…</span>\n\n`+
+    `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+    `<span class="t-prompt">└─$</span> <span class="t-cmd">${cmd}</span>\n\n`+
+    `<span style="color:var(--accent);animation:pulse-dot 1s infinite">⟳ Executing… (this may take up to 30s)</span>\n`;
+
+  try {
+    const flagsStr=selectedExtras.join(' ');
+    const r=await fetch(`${API}/api/parrot/${currentParrotTool}?domain=${domain}&flags=${encodeURIComponent(flagsStr)}`);
+    const d=await r.json();
+
+    let outputHtml='';
+    if(d.output){
+      // Syntax-highlight common patterns in the output
+      let highlighted = d.output
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/(https?:\/\/[^\s<]+)/g,'<span style="color:#79c0ff">$1</span>')
+        .replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g,'<span style="color:#f0883e">$1</span>')
+        .replace(/(FOUND|found|detected|open|vulnerable)/gi,'<span style="color:var(--green);font-weight:700">$1</span>')
+        .replace(/(error|fail|blocked|closed|not found)/gi,'<span style="color:var(--red)">$1</span>');
+      outputHtml=highlighted;
+    }
+    let errHtml='';
+    if(d.errors){
+      errHtml=`\n<span style="color:var(--yellow)">⚠ stderr: ${d.errors.substring(0,200)}</span>`;
+    }
+
+    document.getElementById('terminalBody').innerHTML=
+      `<span class="t-comment"># ${tool.desc.substring(0,70)}…</span>\n\n`+
+      `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+      `<span class="t-prompt">└─$</span> <span class="t-cmd">${cmd}</span>\n\n`+
+      (outputHtml||'<span style="color:#4a5568">(no output)</span>')+errHtml+'\n\n'+
+      `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+      `<span class="t-prompt">└─$</span> <span style="color:#484f58">_</span>`;
+  } catch(e){
+    document.getElementById('terminalBody').innerHTML=
+      `<span class="t-comment"># ${tool.desc.substring(0,70)}…</span>\n\n`+
+      `<span class="t-prompt">┌──(parrot⦅root⦆)─[<span class="t-path">~</span>]</span>\n`+
+      `<span class="t-prompt">└─$</span> <span class="t-cmd">${cmd}</span>\n\n`+
+      `<span style="color:var(--red)">✖ Request failed: ${e.message}</span>\n`;
+  }
+  runBtn.disabled=false;
+}
+
+// Re-render when user types
+document.getElementById('urlInput').addEventListener('input', renderTerminalCmd);
+
+// Initial render
+selectParrotTool('nikto');
+</script>
+</body>
+</html>
